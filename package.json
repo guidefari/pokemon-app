@@ -1,0 +1,22 @@
+{
+  "name": "pokemon-app",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun run ./src/main"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@effect/cli": "^0.74.0",
+    "@effect/platform": "^0.95.0",
+    "@effect/platform-bun": "^0.88.0",
+    "@opentui/core": "^0.1.88",
+    "effect": "^3.20.0"
+  }
+}
