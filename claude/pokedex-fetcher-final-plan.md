@@ -102,22 +102,27 @@ Concurrency 10 takes ~5s. The audience sees it. No slides needed.
 
 ## Architecture
 
+Current codebase snapshot:
+
 ```
 src/
-├── main.ts              # CLI entry point, parses args, runs program
-├── program.ts           # The main Effect program (fetchAll)
-├── fetch.ts             # Single Pokémon fetch with timeout + retry
-├── services/
-│   ├── PokemonClient.ts # Context.Tag + Live + Chaos implementations
-│   ├── Logger.ts        # Pretty terminal output service
-│   └── Config.ts        # Runtime config (concurrency, timeout, retries, chaos)
-├── errors.ts            # FetchError, TimeoutError, ParseError
-├── schemas.ts           # Pokemon schema + PokéAPI response mapping
-├── layers.ts            # Layer composition
-└── display.ts           # Terminal formatting (colors, progress bar, stats)
+├── main.ts                      # Runtime wiring; provides merged live layers and runs the CLI
+├── cli.ts                       # Command definition, generation flag handling, lookup resolution
+├── schema.ts                    # Full PokéAPI Pokemon schema and exported Pokemon type
+└── services/
+    ├── FetchClient.ts           # Effect service for fetching Pokemon from PokéAPI
+    └── TerminalRenderer.ts      # Effect service for terminal formatting + inline sprite rendering
 ```
 
-Total: ~10 files, ~300-400 lines.
+Current responsibilities:
+
+- `src/main.ts` is composition only; it builds the live layer graph and runs `cli`
+- `src/cli.ts` owns command parsing and the current generation-to-id expansion logic
+- `src/schema.ts` is schema-only; rendering constants and terminal capability checks no longer live here
+- `src/services/FetchClient.ts` handles HTTP fetch + schema decoding
+- `src/services/TerminalRenderer.ts` handles chalk styling, stat rendering, and optional inline sprite output
+
+Planned demo architecture is still broader than the current implementation, but the file tree above reflects what exists in the repo today.
 
 ---
 
@@ -505,24 +510,20 @@ npx tsx src/main.ts --gen=1 --concurrency=1 --timeout=1000
 ## Project Structure
 
 ```
-pokedex-fetcher/
+pokemon-app/
 ├── src/
-│   ├── main.ts              # Entry: parse CLI args, pick layer, run program
-│   ├── program.ts           # fetchAllPokemon — the main Effect program
-│   ├── fetch.ts             # fetchSingle — timeout + retry per Pokémon
-│   ├── services/
-│   │   ├── PokemonClient.ts # Context.Tag + Live + Chaos layers
-│   │   └── Config.ts        # FetchConfig service (from CLI args)
-│   ├── errors.ts            # FetchError, TimeoutError, ParseError
-│   ├── schemas.ts           # Pokemon schema + PokéAPI transform
-│   ├── layers.ts            # LiveLayer, ChaosLayer composition
-│   └── display.ts           # Terminal formatting (chalk, progress bar)
+│   ├── main.ts
+│   ├── cli.ts
+│   ├── schema.ts
+│   └── services/
+│       ├── FetchClient.ts
+│       └── TerminalRenderer.ts
 ├── package.json
 ├── tsconfig.json
 └── README.md
 ```
 
-**8 source files. ~300-400 lines total. That's the entire demo.**
+**Current source footprint: 5 TypeScript files in `src/`.**
 
 ---
 
