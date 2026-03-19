@@ -133,8 +133,8 @@ const formatPokemon = (
 };
 
 const name = Argument.string("pokemon").pipe(
-  Argument.withDefault("pikachu"),
   Argument.variadic(),
+  Argument.map((arr) => (arr.length === 0 ? ["pikachu"] : arr)),
 );
 const generation = Flag.string("gen").pipe(Flag.withAlias("g"), Flag.optional);
 
@@ -143,15 +143,15 @@ const command = Command.make(
   { name, generation },
   ({ name, generation }) =>
     Option.match(generation, {
-      onNone: () => Effect.succeed(name as Array<string | number>),
+      onNone: () => Effect.succeed<Array<string | number>>([...name]),
       onSome: (g) =>
         Effect.fromOption(Option.fromNullishOr(GENERATIONS[g])).pipe(
           Effect.mapError(() => `We don't have generation ${g}`),
-          Effect.map((gen) =>
+          Effect.map((gen): Array<string | number> =>
             Array.from(
               { length: gen.end - gen.start + 1 },
               (_, i) => gen.start + i,
-            ) as Array<string | number>,
+            ),
           ),
         ),
     }).pipe(
