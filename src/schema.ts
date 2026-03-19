@@ -38,7 +38,6 @@ const Move = S.Struct({
   version_group_details: S.Array(MoveVersionGroupDetail),
 });
 
-// Fixed: ability can be null in past_abilities
 const PastAbilityEntry = S.Struct({
   ability: S.NullOr(NamedAPIResource),
   is_hidden: S.Boolean,
@@ -82,7 +81,6 @@ const Cries = S.Struct({
   legacy: S.String,
 });
 
-// Sprite helpers
 const NullableUrl = S.NullOr(S.String);
 
 const BaseSprite = S.Struct({
@@ -194,7 +192,7 @@ const Sprites = S.Struct({
   versions: SpriteVersions,
 });
 
-const Pokemon = S.Struct({
+export const Pokemon = S.Struct({
   abilities: S.Array(Ability),
   base_experience: S.Number,
   cries: Cries,
@@ -218,30 +216,4 @@ const Pokemon = S.Struct({
   weight: S.Number,
 });
 
-// Infer the TypeScript type
-type Pokemon = S.Schema.Type<typeof Pokemon>;
-
-// Decode/encode helpers
-const decodePokemon = S.decodeUnknownSync(Pokemon);
-const decodePokemonEither = S.decodeUnknownExit(Pokemon);
-
-const supportsInlineImages =
-  process.env["TERM_PROGRAM"] === "iTerm.app" ||
-  process.env["TERM_PROGRAM"] === "WezTerm" ||
-  process.env["TERM_PROGRAM"] === "WarpTerminal" ||
-  process.env["TERM_PROGRAM"] === "Warp" ||
-  process.env["TERM"] === "xterm-kitty";
-
-// Sprite renders at 12 cols wide (96px image / 8px per cell) + 2 padding
-const SPRITE_COLS = 14;
-const SPRITE_ROWS = 6;
-
-export {
-  Pokemon,
-  decodePokemon,
-  decodePokemonEither,
-  supportsInlineImages,
-  SPRITE_COLS,
-  SPRITE_ROWS,
-};
-export type { Pokemon as PokemonType };
+export type Pokemon = S.Schema.Type<typeof Pokemon>;
