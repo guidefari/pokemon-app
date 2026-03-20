@@ -54,14 +54,18 @@ const streamPokemonLookups = (
         Ref.make(0).pipe(
           Effect.flatMap((attempts) =>
             withExponentialBackoff(
-              FetchClient.use((c) => c.fetchPokemon(lookup)),
+              FetchClient.use((c) => c.fetchPokemon(lookup, chaos)),
               attempts,
             ).pipe(Effect.timed),
           ),
-          Effect.map(([duration, pokemon]) => ({
-            durationMs: Duration.toMillis(duration),
-            pokemon,
-          })),
+          Effect.map(([duration, pokemon]) =>
+            Option.some({ durationMs: Duration.toMillis(duration), pokemon }),
+          ),
+          Effect.catchTag("FetchErrorRetry", (error) =>
+            TerminalRenderer.use((t) => t.showRetryError(error)).pipe(
+              Effect.as(Option.none()),
+            ),
+          ),
         ),
       { concurrency },
     ),
