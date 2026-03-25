@@ -176,7 +176,7 @@ export const fetchClientLayer = Layer.effect(
         ),
     };
   }),
-);
+).pipe(Layer.provide(FetchHttpClient.layer));
 
 // export const fetchClientLayer = Layer.effect(
 //   FetchClient,
