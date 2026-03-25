@@ -1,9 +1,10 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { Duration, Effect, Option, Ref, Stream } from "effect";
+import { Duration, Effect, Filter, Option, pipe, Ref, Stream } from "effect";
 import {
   FetchClient,
   withExponentialBackoff,
   type PokemonLookup,
+  type TimedPokemon,
 } from "./services/FetchClient";
 import {
   capitalizePokemonName,
@@ -72,6 +73,9 @@ const streamPokemonLookups = (
   );
 
 const pokemon = Argument.string("pokemon").pipe(Argument.variadic());
+const pokemonCompare = Argument.string("pokemon").pipe(
+  Argument.variadic({ min: 2, max: 2 }),
+);
 const generation = Flag.choice("gen", pokemonGenerations).pipe(
   Flag.withAlias("g"),
   Flag.optional,
@@ -93,31 +97,35 @@ const concurrency = Flag.integer("concurrency").pipe(
   ),
 );
 
-const resolvePokemonLookups = ({
-  pokemon,
-  generation,
-}: {
-  readonly pokemon: ReadonlyArray<string>;
-  readonly generation: Option.Option<PokemonGeneration>;
-}) =>
-  Option.match(generation, {
-    onNone: () =>
-      Effect.succeed<ReadonlyArray<PokemonLookup>>(
-        pokemon.length > 0 ? pokemon : ["pikachu"],
+const compareComand = Command.make(
+  "compare",
+  { pokemonCompare, concurrency, chaos },
+  ({ pokemonCompare, concurrency, chaos }) =>
+    streamPokemonLookups(pokemonCompare, concurrency, chaos).pipe(
+      Stream.filterMap(Filter.fromPredicateOption((x) => x)),
+      Stream.runCollect,
+      Effect.flatMap((results) =>
+        TerminalRenderer.use((r) =>
+          r.showComaparePokemon(Array.from<TimedPokemon>(results)),
+        ),
       ),
-    onSome: (selectedGeneration) =>
-      Effect.succeed<ReadonlyArray<PokemonLookup>>(
-        getPokemonLookupsForGeneration(selectedGeneration),
-      ),
-  });
+      Effect.catchTag("HttpClientError", (error) => formatError(error)),
+      Effect.catchTag("SchemaError", (error) => Effect.fail("Schema Error")),
+    ),
+);
 
-const command = Command.make(
-  "pokemonfetcher",
-  { pokemon, generation, concurrency, chaos },
-  ({ pokemon, generation, concurrency, chaos }) =>
-    resolvePokemonLookups({ pokemon, generation }).pipe(
-      Effect.flatMap((lookups) =>
-        streamPokemonLookups(lookups, concurrency, chaos).pipe(
+const listComand = Command.make(
+  "list",
+  { generation, concurrency, chaos },
+  ({ generation, concurrency, chaos }) =>
+    Option.match(generation, {
+      onNone: () => Effect.fail(""),
+      onSome: (gen) =>
+        streamPokemonLookups(
+          getPokemonLookupsForGeneration(gen),
+          concurrency,
+          chaos,
+        ).pipe(
           Stream.tap((timedPokemon) =>
             Option.match(timedPokemon, {
               onNone: () => Effect.void,
@@ -129,9 +137,30 @@ const command = Command.make(
           ),
           Stream.runDrain,
           Effect.catchTag("HttpClientError", (error) => formatError(error)),
+          Effect.catchTag("SchemaError", (error) =>
+            Effect.fail("Schema Error"),
+          ),
         ),
-      ),
-    ),
+    }),
 );
 
-export const cli = Command.run(command, { version: "1.0.0" });
+const pokemonCommand = Command.make(
+  "pokemon",
+  { pokemon, generation, concurrency, chaos },
+  ({ pokemon, concurrency, chaos }) =>
+    streamPokemonLookups(pokemon, concurrency, chaos).pipe(
+      Stream.tap((timedPokemon) =>
+        Option.match(timedPokemon, {
+          onNone: () => Effect.void,
+          onSome: (ti) =>
+            TerminalRenderer.use((terminalRenderer) =>
+              terminalRenderer.showPokemon(ti),
+            ),
+        }),
+      ),
+      Stream.runDrain,
+      Effect.catchTag("HttpClientError", (error) => formatError(error)),
+    ),
+).pipe(Command.withSubcommands([listComand, compareComand]));
+
+export const cli = Command.run(pokemonCommand, { version: "1.0.0" });

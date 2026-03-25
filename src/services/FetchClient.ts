@@ -46,8 +46,7 @@ export type TimedPokemon = {
   readonly pokemon: PokemonType;
 };
 
-export const logRetryAttempt =
-  (attempts: Ref.Ref<number>) =>
+export const logRetryAttempt = (attempts: Ref.Ref<number>) =>
   Effect.fn("logRetryAttempt")(function* (
     error:
       | FetchError
@@ -59,26 +58,13 @@ export const logRetryAttempt =
 
     yield* Match.value(error).pipe(
       Match.tag("FetchError", (e) =>
-        TerminalRenderer.use((r) => r.showWhileRetry(e, attempt, config.retries)),
+        TerminalRenderer.use((r) =>
+          r.showWhileRetry(e, attempt, config.retries),
+        ),
       ),
       Match.orElse(() => Effect.void),
     );
   });
-
-// export const withChaos = (lookup: PokemonLookup) => (pokemon: Pokemon) =>
-//   Random.next.pipe(
-//     Effect.flatMap((roll) =>
-//       roll < 0.3
-//         ? Effect.fail(
-//             new FetchError({
-//               pokemonId: lookup,
-//               statusCode: 500,
-//               message: "Chaos!",
-//             }),
-//           )
-//         : Effect.succeed(pokemon),
-//     ),
-//   );
 
 export const withExponentialBackoff = <R>(
   effect: Effect.Effect<
@@ -91,15 +77,13 @@ export const withExponentialBackoff = <R>(
   >,
   attempts: Ref.Ref<number>,
 ) =>
-  Effect.gen(function* () {
-    return yield* Effect.retry(effect, ($) =>
-      Schedule.exponential("200 millis").pipe(
-        Schedule.compose(Schedule.recurs(config.retries - 1)),
-        $,
-        Schedule.tapInput(logRetryAttempt(attempts)),
-      ),
-    );
-  }).pipe(
+  Effect.retry(effect, ($) =>
+    Schedule.exponential("200 millis").pipe(
+      Schedule.compose(Schedule.recurs(config.retries - 1)),
+      $,
+      Schedule.tapInput(logRetryAttempt(attempts)),
+    ),
+  ).pipe(
     Effect.catchTag("FetchError", (e) =>
       Effect.fail(
         new FetchErrorRetry({
@@ -110,25 +94,6 @@ export const withExponentialBackoff = <R>(
       ),
     ),
   );
-
-// As much as I really love this because everything is piped and you just get a input and you give a output the statusCode
-// above is so much more easier to reason about
-// const fetchPokemonLive = (lookup: PokemonLookup, chaos: boolean) =>
-//   Effect.service(HttpClient.HttpClient)
-//     .pipe(
-//       Effect.flatMap((client) =>
-//         client.get(`${baseUrl}/${lookup}`, {
-//           headers: { "Cache-Control": "no-store" },
-//         }),
-//       ),
-//     )
-//     .pipe(
-//       Effect.catchTag("HttpClientError", (error) => Effect.fail(error)),
-//       Effect.flatMap(HttpClientResponse.schemaBodyJson(Pokemon)),
-//       Effect.flatMap((pokemon) =>
-//         chaos ? withChaos(lookup)(pokemon) : Effect.succeed(pokemon),
-//       ),
-//     );
 
 export class FetchClient extends ServiceMap.Service<
   FetchClient,
@@ -157,9 +122,11 @@ const fetchPokemonLive = Effect.fn("FetchClient.fetchPokemon")(function* (
   const roll = yield* Random.next;
 
   if (chaos && roll < 0.3) {
-    return yield* Effect.fail(
-      new FetchError({ pokemonId: lookup, statusCode: 500, message: "Chaos!" }),
-    );
+    return yield* new FetchError({
+      pokemonId: lookup,
+      statusCode: 500,
+      message: "Chaos!",
+    });
   }
 
   return pokemon;
@@ -177,15 +144,3 @@ export const fetchClientLayer = Layer.effect(
     };
   }),
 ).pipe(Layer.provide(FetchHttpClient.layer));
-
-// export const fetchClientLayer = Layer.effect(
-//   FetchClient,
-//   Effect.service(HttpClient.HttpClient).pipe(
-//     Effect.map((client) => ({
-//       fetchPokemon: (lookup: PokemonLookup, chaos: boolean) =>
-//         fetchPokemonLive(lookup, chaos).pipe(
-//           Effect.provideService(HttpClient.HttpClient, client),
-//         ),
-//     })),
-//   ),
-// ).pipe(Layer.provide(FetchHttpClient.layer));

@@ -148,6 +148,79 @@ const formatPokemon = (
   return `\n${header}\n\n\n${sprite}\r${ansiEscapes.cursorUp(spriteRows)}${statSection}${ansiEscapes.cursorDown(totalRows)}\n`;
 };
 
+const formatCompare = (
+  pokemon: ReadonlyArray<TimedPokemon>,
+  sprites: ReadonlyArray<string>,
+): string => {
+  if (pokemon.length === 0) return "";
+  if (pokemon.length === 1) return formatPokemon(pokemon[0]!, sprites[0] ?? "");
+
+  const [a, b] = pokemon as [TimedPokemon, TimedPokemon];
+  const [spriteA, spriteB] = [sprites[0] ?? "", sprites[1] ?? ""];
+
+  const nameA = chalk.bold.white(capitalizePokemonName(a.pokemon.name));
+  const nameB = chalk.bold.white(capitalizePokemonName(b.pokemon.name));
+  const idA = chalk.gray(`#${String(a.pokemon.id).padStart(4, "0")}`);
+  const idB = chalk.gray(`#${String(b.pokemon.id).padStart(4, "0")}`);
+  const typesA = a.pokemon.types.map((t) => formatPokemonType(t.type.name)).join(" ");
+  const typesB = b.pokemon.types.map((t) => formatPokemonType(t.type.name)).join(" ");
+
+  const BAR = 12;
+  const statLines = a.pokemon.stats.map((statA) => {
+    const statB = b.pokemon.stats.find((s) => s.stat.name === statA.stat.name);
+    const valA = statA.base_stat;
+    const valB = statB?.base_stat ?? 0;
+    const label = chalk.gray((pokemonStatLabels[statA.stat.name] ?? statA.stat.name).padStart(7));
+
+    const colorA = valA > valB ? chalk.green : valA < valB ? chalk.red : chalk.yellow;
+    const colorB = valB > valA ? chalk.green : valB < valA ? chalk.red : chalk.yellow;
+
+    const filledA = Math.round((valA / 255) * BAR);
+    const filledB = Math.round((valB / 255) * BAR);
+    const barA = colorA("█".repeat(filledA)) + chalk.dim("░".repeat(BAR - filledA));
+    const barB = chalk.dim("░".repeat(BAR - filledB)) + colorB("█".repeat(filledB));
+
+    return `${colorA(String(valA).padStart(3))} ${barA}  ${label}  ${barB} ${colorB(String(valB).padStart(3))}`;
+  });
+
+  const totalA = a.pokemon.stats.reduce((s, x) => s + x.base_stat, 0);
+  const totalB = b.pokemon.stats.reduce((s, x) => s + x.base_stat, 0);
+  const colorTotalA = totalA > totalB ? chalk.green : totalA < totalB ? chalk.red : chalk.yellow;
+  const colorTotalB = totalB > totalA ? chalk.green : totalB < totalA ? chalk.red : chalk.yellow;
+  const filledTA = Math.round((totalA / 1530) * BAR);
+  const filledTB = Math.round((totalB / 1530) * BAR);
+  const barTA = colorTotalA("█".repeat(filledTA)) + chalk.dim("░".repeat(BAR - filledTA));
+  const barTB = chalk.dim("░".repeat(BAR - filledTB)) + colorTotalB("█".repeat(filledTB));
+  const totalLine = `${colorTotalA(String(totalA).padStart(3))} ${barTA}  ${chalk.gray("   BST")}  ${barTB} ${colorTotalB(String(totalB).padStart(3))}`;
+
+  const winner =
+    totalA > totalB ? `${nameA} wins!` :
+    totalB > totalA ? `${nameB} wins!` :
+    chalk.yellow("It's a draw!");
+
+  const spritesRow = spriteA
+    ? `${spriteA}\r${ansiEscapes.cursorUp(spriteRows)}${ansiEscapes.cursorForward(spriteColumns + 6)}${spriteB}${ansiEscapes.cursorDown(spriteRows)}`
+    : "";
+
+  const headerPad = 28;
+  const header = `${idA} ${nameA}  ` + chalk.bold.gray("VS") + `  ${idB} ${nameB}`;
+  const typesRow = `${typesA} + ${typesB}`;
+
+  return [
+    "",
+    header,
+    typesRow,
+    "",
+    spritesRow,
+    ...statLines,
+    "",
+    totalLine,
+    "",
+    `${" ".repeat(14)}${winner}`,
+    "",
+  ].join("\n");
+};
+
 const displayName = (pokemonId: PokemonLookup) =>
   Match.value(pokemonId).pipe(
     Match.when(
@@ -187,6 +260,9 @@ export class TerminalRenderer extends ServiceMap.Service<
     ) => Effect.Effect<void>;
     readonly showRetryError: (error: FetchErrorRetry) => Effect.Effect<void>;
     readonly showPokemon: (timedPokemon: TimedPokemon) => Effect.Effect<void>;
+    readonly showComaparePokemon: (
+      pokemon: ReadonlyArray<TimedPokemon>,
+    ) => Effect.Effect<void>;
     readonly showHttpError: (
       error: HttpClientError.HttpClientError,
     ) => Effect.Effect<void>;
@@ -197,6 +273,15 @@ export const terminalRendererLayer = Layer.sync(TerminalRenderer, () => ({
   showWhileRetry: (error, attempt, retries) =>
     Console.error(
       `${chalk.bgCyan.black.bold(" RETRY ")} ${chalk.cyan(displayName(error.pokemonId))}  ${chalk.dim(`attempt ${attempt}/${retries}`)}  ${chalk.gray("Chaos!")}`,
+    ),
+  showComaparePokemon: (pokemon: ReadonlyArray<TimedPokemon>) =>
+    Effect.all(
+      pokemon.map((tp) => renderInlineSprite(tp.pokemon.sprites.front_default)),
+      { concurrency: "unbounded" },
+    ).pipe(
+      Effect.flatMap((sprites) =>
+        Console.log(formatCompare(pokemon, sprites)),
+      ),
     ),
   showRetryError: (error) =>
     Console.error(
