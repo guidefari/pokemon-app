@@ -14,6 +14,7 @@ import {
 import { Pokemon } from "./schema";
 import { SchemaError } from "effect/Schema";
 import { HttpClientError } from "effect/unstable/http/HttpClientError";
+import { FetchHttpClient } from "effect/unstable/http";
 
 const pokemonGenerations = ["1", "2", "3", "4", "5"] as const;
 export const config = {

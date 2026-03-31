@@ -5,11 +5,16 @@
   "private": true,
   "scripts": {
     "dev": "bun run ./src/main",
+    "slides": "slidev slides.md",
+    "slides:build": "slidev build slides.md",
+    "slides:export": "slidev export slides.md",
     "prepare": "effect-language-service patch",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@effect/language-service": "^0.80.0",
+    "@slidev/cli": "^52.14.1",
+    "@slidev/theme-default": "^0.25.0",
     "@types/bun": "latest",
     "@types/react": "^19.2.14"
   },

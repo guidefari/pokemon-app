@@ -132,7 +132,7 @@ const fetchPokemonLive = Effect.fn("FetchClient.fetchPokemon")(function* (
   return pokemon;
 });
 
-export const fetchClientLayer = Layer.effect(
+export const FetchClientLayer = Layer.effect(
   FetchClient,
   Effect.gen(function* () {
     const http = yield* HttpClient.HttpClient;
@@ -143,4 +143,4 @@ export const fetchClientLayer = Layer.effect(
         ),
     };
   }),
-).pipe(Layer.provide(FetchHttpClient.layer));
+)

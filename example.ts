@@ -1,126 +1,108 @@
-type Pokemon = {
+interface Pokemon {
   id: number;
   name: string;
   base_experience: number;
   height: number;
   weight: number;
-
   abilities: {
-    ability: {
-      name: string;
-      url: string;
-    };
+    ability: { name: string; url: string };
     is_hidden: boolean;
     slot: number;
   }[];
-
-  types: {
-    slot: number;
-    type: {
-      name: string;
-      url: string;
-    };
-  }[];
-
+  types: { slot: number; type: { name: string; url: string } }[];
   stats: {
     base_stat: number;
     effort: number;
-    stat: {
-      name: string;
-      url: string;
-    };
+    stat: { name: string; url: string };
   }[];
+  moves: { move: { name: string; url: string } }[];
+  sprites: { front_default: string; back_default: string };
+  species: { name: string; url: string };
+}
 
-  moves: {
-    move: {
-      name: string;
-      url: string;
-    };
-  }[];
-
-  sprites: {
-    front_default: string;
-    back_default: string;
-  };
-
-  species: {
-    name: string;
-    url: string;
-  };
-};
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
-
-const isPokemon = (value: unknown): value is Pokemon => {
-  if (!isRecord(value)) {
-    return false;
+const fetchPokemon = async (name: string): Promise<Pokemon> => {
+  try {
+    const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${name}`);
+    try {
+      const data = await response.json();
+      return data as Pokemon;
+    } catch (error) {
+      console.error("Parse Error", error);
+    }
+  } catch (error) {
+    console.error(error);
   }
-
-  const pokemon = value as Record<string, unknown>;
-
-  return (
-    typeof pokemon.id === "number" &&
-    typeof pokemon.name === "string" &&
-    typeof pokemon.base_experience === "number" &&
-    typeof pokemon.height === "number" &&
-    typeof pokemon.weight === "number" &&
-    Array.isArray(pokemon.abilities) &&
-    Array.isArray(pokemon.types) &&
-    Array.isArray(pokemon.stats) &&
-    Array.isArray(pokemon.moves) &&
-    isRecord(pokemon.sprites) &&
-    typeof pokemon.sprites.front_default === "string" &&
-    typeof pokemon.sprites.back_default === "string" &&
-    isRecord(pokemon.species) &&
-    typeof pokemon.species.name === "string" &&
-    typeof pokemon.species.url === "string"
+  throw new Error(
+    "All the other errors we don't know about, also typescript complains",
   );
 };
 
-const fetchPikachu = async () => {
-  try {
-    const response = await fetch("https://pokeapi.co/api/v2/pokemon/pikachu");
+fetchPokemon("pikachu").then(console.log);
 
-    if (response.status === 404) {
-      console.error("Pokemon not found (404).");
-      return;
-    }
+// // ---- Types ---------------------------------------------------------------
 
-    if (!response.ok) {
-      console.error(
-        `Request failed (${response.status} ${response.statusText}).`,
-      );
-      return;
-    }
+// interface NamedResource {
+//   name: string;
+//   url: string;
+// }
 
-    const payload: unknown = await response.json();
+// interface Pokemon {
+//   id: number;
+//   name: string;
+//   base_experience: number;
+//   height: number;
+//   weight: number;
+//   abilities: { ability: NamedResource; is_hidden: boolean; slot: number }[];
+//   types: { slot: number; type: NamedResource }[];
+//   stats: { base_stat: number; effort: number; stat: NamedResource }[];
+//   moves: { move: NamedResource }[];
+//   sprites: { front_default: string; back_default: string };
+//   species: NamedResource;
+// }
 
-    if (!isPokemon(payload)) {
-      console.error("Response JSON does not match the Pokemon type.");
-      return;
-    }
+// // ---- Fetcher -------------------------------------------------------------
 
-    console.log(payload);
-  } catch (error) {
-    if (error instanceof TypeError) {
-      console.error(
-        "Connection error while fetching Pokemon. Check your internet or API URL.",
-      );
-      return;
-    }
+// // Promise<Pokemon> — but can throw NetworkError | HttpError | ParseError.
+// // TypeScript has no idea. The caller finds out at runtime.
+// const fetchPokemon = async (name: string): Promise<Pokemon> => {
+//   let response: Response;
 
-    console.error("Unexpected error while fetching Pokemon:", error);
-  }
-};
+//   try {
+//     response = await fetch(`https://pokeapi.co/api/v2/pokemon/${name}`);
+//   } catch (cause) {
+//     throw new NetworkError(cause);
+//   }
 
-fetchPikachu();
+//   if (!response.ok) {
+//     throw new HttpError(response.status, response.statusText);
+//   }
 
-// const fetchItem = async () => {
-//   // You first fetch your item.
-//   const itemResponse = await fetch("");
+//   let data: unknown;
+//   try {
+//     data = await response.json();
+//   } catch {
+//     throw new ParseError("Response body is not valid JSON");
+//   }
 
-//   const itemJson = await itemResponse.json();
+//   if (!isPokemon(data)) {
+//     throw new ParseError("Response does not match the expected Pokemon shape");
+//   }
 
-//   console.log(itemJson)
+//   return data;
 // };
+
+// // ---- Main ----------------------------------------------------------------
+
+// fetchPokemon("pikachu")
+//   .then((pokemon) => console.log(pokemon))
+//   .catch((error: unknown) => {
+//     if (error instanceof NetworkError) {
+//       console.error("[NetworkError]", error.message);
+//     } else if (error instanceof HttpError) {
+//       console.error(`[HttpError ${error.status}]`, error.message);
+//     } else if (error instanceof ParseError) {
+//       console.error("[ParseError]", error.message);
+//     } else {
+//       console.error("[UnknownError]", error);
+//     }
+//   });
